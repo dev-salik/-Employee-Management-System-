@@ -1,7 +1,214 @@
+
+# Employee Management System (CRUD)
+# A simple command-line tool to Add, List, Search, Update and Delete
+# employee records stored in a JSON file.
+
 import json
+import os
 from random import randint
 
-while True:
+DATA_FILE = "employee.json"
+
+# FILE HELPERS
+
+def load_employees():
+    """Load the employee list from disk. Returns [] if the file is missing/empty/corrupt."""
+    if not os.path.exists(DATA_FILE):
+        return []
+    try:
+        with open(DATA_FILE, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        print("WARNING: employee.json was empty or corrupted. Starting fresh.")
+        return []
+
+
+def save_employees(employees):
+    """Write the employee list back to disk."""
+    with open(DATA_FILE, "w") as f:
+        json.dump(employees, f, indent=4)
+
+
+def generate_unique_id(employees):
+    """Generate a random ID that doesn't collide with an existing employee."""
+    existing_ids = {emp["ID"] for emp in employees}
+    while True:
+        new_id = randint(500, 1000)
+        if new_id not in existing_ids:
+            return new_id
+
+
+
+# SMALL INPUT-HELPERS
+
+
+def input_nonempty(prompt):
+    """Keep asking until the user types something other than blank/whitespace."""
+    while True:
+        value = input(prompt).strip()
+        if value:
+            return value
+        print("This field can't be empty. Try again.")
+
+
+def input_int(prompt):
+    """Keep asking until the user types a valid integer. Returns None if they type 'q' to cancel."""
+    while True:
+        raw = input(prompt).strip()
+        if raw.lower() == "q":
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            print("Please enter a valid number (or 'q' to cancel).")
+
+
+def input_yes_no(prompt):
+    """Keep asking until the user answers y or n. Returns True for y, False for n."""
+    while True:
+        answer = input(prompt).strip().lower()
+        if answer in ("y", "n"):
+            return answer == "y"
+        print("Please enter 'y' or 'n'.")
+
+
+def find_employee_index(employees, emp_id):
+    """Return the index of the employee with this ID, or None if not found."""
+    for i, emp in enumerate(employees):
+        if emp["ID"] == emp_id:
+            return i
+    return None
+
+
+# CRUD OPERATIONS
+
+
+def add_employee():
+    print("=" * 42)
+    print("\tADD EMPLOYEE SECTION")
+    print("=" * 42)
+
+    employees = load_employees()
+
+    name = input_nonempty("ENTER EMPLOYEE NAME: ")
+    department = input_nonempty("ENTER EMPLOYEE DEPARTMENT: ").upper()
+    employee_id = generate_unique_id(employees)
+
+    employees.append({
+        "ID": employee_id,
+        "name": name,
+        "department": department
+    })
+    save_employees(employees)
+
+    print(f"EMPLOYEE ADDED SUCCESSFULLY!\nEmployee ID Generated: {employee_id}\n")
+
+
+def list_employees():
+    employees = load_employees()
+
+    print("=" * 38)
+    print("     THE LIST OF EMPLOYEES")
+    print("=" * 38)
+
+    if not employees:
+        print("No employees found.")
+    else:
+        for employee in employees:
+            print(json.dumps(employee, indent=4))
+    print()
+
+
+def search_employee():
+    employees = load_employees()
+
+    search_id = input_int("ENTER EMPLOYEE ID TO SEARCH (or 'q' to cancel): ")
+    if search_id is None:
+        return
+
+    index = find_employee_index(employees, search_id)
+    if index is not None:
+        print(json.dumps(employees[index], indent=4))
+    else:
+        print("EMPLOYEE NOT FOUND")
+
+
+def delete_employee():
+    print("=" * 42)
+    print("\tDELETE EMPLOYEE SECTION")
+    print("=" * 42)
+
+    employees = load_employees()
+
+    delete_id = input_int("ENTER EMPLOYEE ID TO DELETE (or 'q' to cancel): ")
+    if delete_id is None:
+        return
+
+    index = find_employee_index(employees, delete_id)
+    if index is None:
+        print("EMPLOYEE NOT FOUND")
+        return
+
+    employee = employees[index]
+    confirmed = input_yes_no(
+        f"IF YOU WANT TO DELETE THIS EMPLOYEE TYPE 'y/n'!\n"
+        f"{json.dumps(employee, indent=4)}\n"
+    )
+
+    if not confirmed:
+        print("OK, EMPLOYEE NOT DELETED")
+        return
+
+    del employees[index]
+    save_employees(employees)
+    print("EMPLOYEE DELETED SUCCESSFULLY!")
+
+
+def update_employee():
+    print("=" * 42)
+    print("\tUPDATE EMPLOYEE SECTION")
+    print("=" * 42)
+
+    employees = load_employees()
+
+    emp_id = input_int("ENTER EMPLOYEE ID TO UPDATE (or 'q' to cancel): ")
+    if emp_id is None:
+        return
+
+    index = find_employee_index(employees, emp_id)
+    if index is None:
+        print("EMPLOYEE NOT FOUND")
+        return
+
+    employee = employees[index]
+    print(f"EMPLOYEE FOUND!\n{json.dumps(employee, indent=4)}\n")
+    print("1. Update Name")
+    print("2. Update Department")
+    update_choice = input("What do you want to update? ").strip()
+
+    if update_choice == "1":
+        employee["name"] = input_nonempty("NEW NAME: ")
+        print("Employee name updated!")
+    elif update_choice == "2":
+        employee["department"] = input_nonempty("NEW DEPARTMENT: ").upper()
+        print("Employee department updated!")
+    else:
+        print("Invalid choice. No changes made.")
+        return
+
+    save_employees(employees)
+
+# MENU / MAIN LOOP
+MENU_ACTIONS = {
+    "1": add_employee,
+    "2": list_employees,
+    "3": search_employee,
+    "4": delete_employee,
+    "5": update_employee,
+}
+
+
+def print_menu():
     print("\t        MAIN MENU")
     print("=" * 42)
     print("\tEMPLOYEE MANAGEMENT SYSTEM")
@@ -13,167 +220,83 @@ while True:
     print("5. UPDATE EMPLOYEE")
     print("6. EXIT")
 
-    choice = input("ENTER YOUR CHOICE: ")
 
-    # FOR EXIT
-    if choice == "6":
-        print("BYE!")
-        break
+def main():
+    while True:
+        print_menu()
+        choice = input("ENTER YOUR CHOICE: ").strip()
 
-    # ADD EMPLOYEE
-    if choice == "1":
-        print("=" * 42)
-        print("\tADD EMPLOYEE SECTION")
-        print("=" * 42)
-
-        employee_id = randint(500, 1000)
-        name = input("ENTER EMPLOYEE NAME: ")
-        department = input("ENTER EMPLOYEE DEPARTMENT: ")
-
-        new_employee = {
-            "ID": employee_id,
-            "name": name,
-            "department": department
-        }
-
-        with open("employee.json", "r") as f:
-            list_of_employee = json.load(f)
-
-        list_of_employee.append(new_employee)
-
-        with open("employee.json", "w") as f:
-            json.dump(list_of_employee, f, indent=4)
-
-        print(f"EMPLOYEE ADDED SUCCESSFULLY! \nEmploye ID Generated : {employee_id}\n")
-        back_control = input("YOU WANT TO GO MAIN MENU y/n?\n")
-        if back_control == "y":
-            continue
-        else:
+        if choice == "6":
+            print("BYE!")
             break
 
-    # LIST EMPLOYEES
-    elif choice == "2":
-        with open("employee.json", "r") as f:
-            list_of_employee = json.load(f)
-
-        print("="*38)
-        print("     THE LIST OF EMPLOYE")
-        print("="*38)
-
-        for employee in list_of_employee:
-            print(json.dumps(employee, indent=4))
-
-        print(" ")
-
-        back_control = input("YOU WANT TO GO MAIN MENU y/n?\n")
-        if back_control == "y":
+        action = MENU_ACTIONS.get(choice)
+        if action is None:
+            print("Invalid choice. Please enter a number from 1-6.\n")
             continue
-        else:
-            break
-        
-    # SEARCH EMPLOYEE
-    elif choice == "3":
-        try:
-            search_id = int(input("ENTER EMPLOYEE ID TO SEARCH:\n> "))
-        except ValueError:
-            print("Please enter valid number!")
-            continue
-            
+
+        action()
+        print()  # spacing before the menu reprints
 
 
-        with open("employee.json", "r") as f:
-            list_of_employee = json.load(f)
-
-        for employee in list_of_employee:
-            if employee["ID"] == search_id:
-                print(json.dumps(employee, indent=4))
-                break
-        else:
-            print("EMPLOYEE NOT FOUND")
-        back_control = input("YOU WANT TO GO MAIN MENU y/n?\n")
-        if back_control == "y":
-            continue
-        else:
-            break
+if __name__ == "__main__":
+    main()
 
 
-    # DELETE EMPLOYEE
-    elif choice == "4":
-        print("=" * 42)
-        print("\tDELETE EMPLOYEE SECTION")
-        print("=" * 42)
 
-        delete_employee = int(input("ENTER EMPLOYEE ID TO DELETE: "))
 
-        with open("employee.json", "r") as f:
-            list_of_employee = json.load(f)
 
-        for employee in list_of_employee:
-            if employee["ID"] == delete_employee:
-                confirmation = input(
-                    f"IF YOU WANT TO DELETE THIS EMPLOYEE TYPE 'y/n'!\n"
-                    f"{json.dumps(employee, indent=4)}\n"
-                ).lower()
 
-                if confirmation == "n":
-                    print("OK, EMPLOYEE NOT DELETED")
-                    break
-                elif confirmation == "y":
-                    list_of_employee = [
-                        emp for emp in list_of_employee
-                        if emp["ID"] != delete_employee
-                    ]
 
-                    with open("employee.json", "w") as f:
-                        json.dump(list_of_employee, f, indent=4)
 
-                    print("EMPLOYEE DELETED SUCCESSFULLY!")
-                    back_control = input("YOU WANT TO GO MAIN MENU y/n?\n")
-                    if back_control == "y":
-                        continue
-                    else:
-                        break
-                else:
-                    print("PLEASE ENTER ONLY y OR n")
-                break
-        else:
-            print("EMPLOYEE NOT FOUND")
 
-    # UPDATE EMPLOYEE
-    elif choice == "5":  
 
-        print("UPDATE EMPLOYEE - NEXT STEP")
-        with open("employee.json", "r") as f:
-            list_of_employee = json.load(f)
-        
-        enter_id = int(input("Enter ID of Employe: \n>"))
 
-        found = False
 
-        for employee in list_of_employee:
-            if employee["ID"] == enter_id:
-                found = True
-                print(f"Employe Founded!\n{json.dumps(employee, indent=4)} ")
-                print(" ")
-                print("1. Update Name")
-                print("2. Update Department")
-                update_choice = input("What do you want to update?\n>")
-            
-            if update_choice == "1":
-                new_name = input("*Enter Name: ")
-                employee["name"] = new_name
-                print(f"Employe Name Updated!")
 
-            elif update_choice == "2":
-                new_departement = input("Enter new department:\n>").upper()
-                employee["department"] = new_departement
-                print(f"Employe department Updated!")
-            
-            with open("employee.json", "w") as f:
-                json.dump(list_of_employee, f, indent=4)
-            
-            break
 
-    if not found:
-        print("Employee ID not found.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
